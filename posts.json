@@ -48,6 +48,17 @@
         "path": "uploads/irem.cayr1_20250603_144248_IMG_0256.mov",
         "type": "video"
       }
+    ],
+    "likes": [
+      "irem.cayr1"
+    ],
+    "comments": [
+      {
+        "id": 0,
+        "username": "irem.cayr1",
+        "comment": "selam",
+        "timestamp": "2025-06-03T15:25:19.016871"
+      }
     ]
   },
   {

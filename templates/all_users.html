@@ -14,7 +14,7 @@
         <div class="user-item" data-username="{{ user.username|lower }}">
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div id="all-users-profile-{{ user.username }}" style="width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;">
                         {{ user.username[0].upper() }}
                     </div>
                     <div>
@@ -65,27 +65,5 @@ function sendFriendRequest(username) {
         }
     });
 }
-
-function loadAllUsersProfilePhotos() {
-    document.querySelectorAll('[id^="all-users-profile-"]').forEach(element => {
-        const username = element.id.replace('all-users-profile-', '');
-
-        fetch(`/get_user_info/${username}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.profile_photo) {
-                    element.innerHTML = `<img src="/static/${data.profile_photo}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                }
-            })
-            .catch(error => {
-                console.log('Profile photo load error for', username);
-            });
-    });
-}
-
-// Sayfa yüklendiğinde profil fotoğraflarını yükle
-document.addEventListener('DOMContentLoaded', function() {
-    loadAllUsersProfilePhotos();
-});
 </script>
 {% endblock %}

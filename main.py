@@ -261,35 +261,19 @@ def nells():
 
     posts = load_posts()
     users = load_users()
-    is_guest = 'guest' in session
-    current_user = session.get('username', '')
 
-    if is_guest:
-        # Misafir kullanıcılar sadece herkese açık postları görebilir
-        filtered_posts = [post for post in posts if post.get('is_public', True)]
-    else:
-        # Giriş yapmış kullanıcılar için arkadaşlık durumuna göre filtrele
-        friendships = load_friendships()
-        user_friends = friendships.get(current_user, {}).get('friends', [])
-        
-        filtered_posts = []
-        for post in posts:
-            # Eğer post herkese açıksa, herkese göster
-            if post.get('is_public', True):
-                filtered_posts.append(post)
-            # Eğer post sadece profilde gösterilecekse, sadece arkadaşlara göster
-            elif post['username'] in user_friends or post['username'] == current_user:
-                filtered_posts.append(post)
-
+    # Sadece public postları göster
+    public_posts = [post for post in posts if post.get('is_public', True)]
     # Tarihe göre ters sırala (en yeni üstte)
-    filtered_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    public_posts.sort(key=lambda x: x['created_at'], reverse=True)
 
     # Her post için takipçi sayısını ekle
-    for post in filtered_posts:
+    for post in public_posts:
         follower_count = get_follower_count(post['username'])
         post['followers_count'] = follower_count if follower_count is not None else 0
 
-    return render_template('nells.html', posts=filtered_posts, is_guest=is_guest, users_data=users)
+    is_guest = 'guest' in session
+    return render_template('nells.html', posts=public_posts, is_guest=is_guest, users_data=users)
 
 @app.route('/chat/<recipient>')
 def chat(recipient):

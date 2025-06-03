@@ -1,0 +1,28 @@
+{
+  "irem.cayr1": {
+    "friends": [
+      "Anılmaden"
+    ],
+    "sent_requests": [],
+    "received_requests": []
+  },
+  "Anılmaden": {
+    "friends": [
+      "irem.cayr1",
+      "ayca.bül"
+    ],
+    "sent_requests": [],
+    "received_requests": [
+      "ayca.bül"
+    ]
+  },
+  "ayca.bül": {
+    "friends": [
+      "Anılmaden"
+    ],
+    "sent_requests": [
+      "Anılmaden"
+    ],
+    "received_requests": []
+  }
+}

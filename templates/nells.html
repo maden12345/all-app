@@ -1,0 +1,1745 @@
+
+{% extends "base.html" %}
+
+{% block title %}Nells - ChatNell{% endblock %}
+
+{% block content %}
+<div class="nells-container">
+    <!-- Header with search -->
+    <div class="nells-header">
+        <div class="header-content">
+            <h2>🔥 Nells</h2>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Ara..." />
+                <button id="search-btn">🔍</button>
+            </div>
+        </div>
+        {% if not is_guest %}
+        <a href="{{ url_for('profile', username=session.username) }}" class="create-post-fab">
+            ➕
+        </a>
+        {% endif %}
+    </div>
+    
+    {% if posts %}
+        <div class="posts-feed">
+            {% for post in posts %}
+                <div class="post-item" data-post-id="{{ post.id }}">
+                    <!-- Post Header -->
+                    <div class="post-header">
+                        <div class="user-section">
+                            {% if users_data and users_data.get(post.username, {}).get('profile_photo') %}
+                                <img src="/static/{{ users_data[post.username]['profile_photo'] }}" alt="{{ post.username }}" class="avatar">
+                            {% else %}
+                                <div class="avatar-placeholder">{{ post.username[0].upper() }}</div>
+                            {% endif %}
+                            <div class="user-info">
+                                <a href="{{ url_for('profile', username=post.username) }}" class="username">@{{ post.username }}</a>
+                                <span class="post-time">{{ (post.created_at|replace('T', ' ')|replace('.', ' '))[:16] }}</span>
+                            </div>
+                        </div>
+                        <div class="post-menu">
+                            {% if not is_guest and post.username == session.username %}
+                            <button onclick="deletePost({{ post.id }})" class="menu-btn delete">🗑️</button>
+                            {% elif not is_guest and post.username != session.username %}
+                            <button id="follow-btn-{{ post.username }}" onclick="followUser('{{ post.username }}')" class="follow-btn">Takip Et</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Post Content -->
+                    <div class="post-content">
+                        <p class="content-text">{{ post.content }}</p>
+                    </div>
+
+                    <!-- Media Content -->
+                    {% if post.media_files %}
+                        <div class="media-wrapper">
+                            {% set video_files = post.media_files|selectattr('type', 'equalto', 'video')|list %}
+                            {% set image_files = post.media_files|rejectattr('type', 'equalto', 'video')|list %}
+                            
+                            {% if video_files %}
+                                {% for file in video_files %}
+                                    <div class="video-wrapper">
+                                        <video 
+                                            id="video-{{ post.id }}-{{ loop.index }}"
+                                            class="post-media video" 
+                                            src="/{{ file.path }}" 
+                                            onclick="toggleVideo(this)"
+                                            loop>
+                                        </video>
+                                        <div class="video-overlay">
+                                            <button class="play-btn" onclick="toggleVideo(document.getElementById('video-{{ post.id }}-{{ loop.index }}'))">
+                                                <span class="play-icon">▶️</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            {% if image_files %}
+                                <div class="image-grid {% if image_files|length > 1 %}multi-image{% endif %}">
+                                    {% for file in image_files %}
+                                        <img src="/{{ file.path }}" alt="{{ file.filename }}" class="post-media image" onclick="openFullscreen('/{{ file.path }}', '{{ post.id }}')">
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- TikTok Style Action Bar - Right Side -->
+                    <div class="tiktok-actions">
+                        <button class="tiktok-btn like-btn" onclick="toggleLike({{ post.id }})" data-post-id="{{ post.id }}">
+                            <span class="icon">🤍</span>
+                            <span class="count">0</span>
+                        </button>
+                        <button class="tiktok-btn comment-btn" onclick="toggleComments({{ post.id }})">
+                            <span class="icon">💬</span>
+                            <span class="count">0</span>
+                        </button>
+                        <button class="tiktok-btn share-btn" onclick="sharePost({{ post.id }})">
+                            <span class="icon">📤</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Follower info moved to bottom -->
+                    <div class="follower-info">
+                        <span class="follower-count">{{ post.followers_count }} takipçi</span>
+                    </div>
+
+                    <!-- Comments Section -->
+                    <div class="comments-section" id="comments-{{ post.id }}" style="display: none;">
+                        <div class="comments-list" id="comments-list-{{ post.id }}">
+                            <!-- Comments will be loaded here -->
+                        </div>
+                        {% if not is_guest %}
+                        <div class="comment-input-wrapper">
+                            <input type="text" placeholder="Yorum ekle..." class="comment-input" id="comment-input-{{ post.id }}" onkeypress="handleCommentKeyPress(event, {{ post.id }})">
+                            <button onclick="addComment({{ post.id }})" class="send-comment-btn">📤</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-feed">
+            <div class="empty-icon">📱</div>
+            <h3>Henüz gönderi yok</h3>
+            <p>İlk gönderinizi paylaşarak başlayın!</p>
+            {% if not is_guest %}
+            <a href="{{ url_for('profile', username=session.username) }}" class="cta-btn">İlk Gönderini Paylaş</a>
+            {% else %}
+            <a href="{{ url_for('index') }}" class="cta-btn">Giriş Yap</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Floating Action Button for scroll -->
+<div class="scroll-controls">
+    <button onclick="scrollToTop()" class="scroll-btn">⬆️</button>
+</div>
+
+<!-- Fullscreen Modal -->
+<div id="fullscreen-modal" class="fullscreen-modal" onclick="closeFullscreen()">
+    <div class="fullscreen-content">
+        <img id="fullscreen-image" class="fullscreen-image">
+        <video id="fullscreen-video" class="fullscreen-video" controls style="display: none;"></video>
+        <button class="close-btn" onclick="closeFullscreen()">✕</button>
+        
+        <!-- Navigation arrows for mobile swipe -->
+        <button class="nav-arrow prev-arrow" onclick="navigateMedia(-1)">‹</button>
+        <button class="nav-arrow next-arrow" onclick="navigateMedia(1)">›</button>
+        
+        <!-- Transparent action buttons in fullscreen -->
+        <div class="fullscreen-actions">
+            <button class="fullscreen-action-btn like-btn-fs" onclick="toggleLike(currentFullscreenPostId)" data-post-id="">
+                <span class="icon">🤍</span>
+                <span class="count">0</span>
+            </button>
+            <button class="fullscreen-action-btn comment-btn-fs" onclick="toggleComments(currentFullscreenPostId)">
+                <span class="icon">💬</span>
+                <span class="count">0</span>
+            </button>
+            <button class="fullscreen-action-btn share-btn-fs" onclick="sharePost(currentFullscreenPostId)">
+                <span class="icon">📤</span>
+            </button>
+        </div>
+        
+        <!-- Video Navigation Controls - Bottom Right -->
+        <div class="fullscreen-video-nav">
+            <button class="video-nav-btn" onclick="navigateToVideo(-1)">⬆️</button>
+            <button class="video-nav-btn" onclick="navigateToVideo(1)">⬇️</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let currentUser = '{{ session.username if not is_guest else "" }}';
+let isGuest = {{ 'true' if is_guest else 'false' }};
+let currentFullscreenPostId = null;
+let mediaElements = [];
+let currentMediaIndex = 0;
+let allVideos = [];
+let currentVideoIndex = 0;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllPostData();
+    if (!isGuest) {
+        loadFollowStatuses();
+    }
+    setupAutoPlay();
+    initializeVideoNavigation();
+});
+
+// Load post data (likes, comments)
+function loadAllPostData() {
+    document.querySelectorAll('.post-item').forEach(postElement => {
+        const postId = postElement.dataset.postId;
+        loadPostData(postId);
+    });
+}
+
+function loadPostData(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                updateLikeButton(postId, data.likes, data.like_count);
+                updateCommentCount(postId, data.comment_count);
+                loadComments(postId, data.comments);
+            }
+        })
+        .catch(error => console.log('Error loading post data:', error));
+}
+
+// Like functionality
+function toggleLike(postId) {
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
+    }
+    
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const btn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+            const icon = btn.querySelector('.icon');
+            const count = btn.querySelector('.count');
+            
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            btn.classList.toggle('liked', data.liked);
+            
+            // Add animation
+            btn.style.transform = 'scale(1.2)';
+            setTimeout(() => btn.style.transform = 'scale(1)', 200);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Like error:', error));
+}
+
+function updateLikeButton(postId, likes, likeCount) {
+    const btn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    if (btn) {
+        const icon = btn.querySelector('.icon');
+        const count = btn.querySelector('.count');
+        const isLiked = likes.includes(currentUser);
+        
+        icon.textContent = isLiked ? '❤️' : '🤍';
+        count.textContent = likeCount;
+        btn.classList.toggle('liked', isLiked);
+    }
+}
+
+// Comment functionality
+function toggleComments(postId) {
+    const commentsSection = document.getElementById(`comments-${postId}`);
+    const isVisible = commentsSection.style.display !== 'none';
+    
+    commentsSection.style.display = isVisible ? 'none' : 'block';
+    
+    // Animate
+    if (!isVisible) {
+        commentsSection.style.maxHeight = '0';
+        commentsSection.style.opacity = '0';
+        setTimeout(() => {
+            commentsSection.style.maxHeight = '500px';
+            commentsSection.style.opacity = '1';
+        }, 10);
+    }
+}
+
+function addComment(postId) {
+    if (isGuest) {
+        alert('Yorum yapmak için giriş yapmanız gerekiyor!');
+        return;
+    }
+    
+    const input = document.getElementById(`comment-input-${postId}`);
+    const comment = input.value.trim();
+    
+    if (!comment) return;
+    
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            post_id: postId, 
+            comment: comment 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            addCommentToDOM(postId, data.comment);
+            updateCommentCount(postId, data.comment_count);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Comment error:', error));
+}
+
+function handleCommentKeyPress(event, postId) {
+    if (event.key === 'Enter') {
+        addComment(postId);
+    }
+}
+
+function addCommentToDOM(postId, comment) {
+    const commentsList = document.getElementById(`comments-list-${postId}`);
+    const commentElement = document.createElement('div');
+    commentElement.className = 'comment-item';
+    commentElement.innerHTML = `
+        <div class="comment-user">@${comment.username}</div>
+        <div class="comment-text">${comment.comment}</div>
+        <div class="comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
+    `;
+    commentsList.appendChild(commentElement);
+    
+    // Animate new comment
+    commentElement.style.opacity = '0';
+    commentElement.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+        commentElement.style.opacity = '1';
+        commentElement.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+function loadComments(postId, comments) {
+    const commentsList = document.getElementById(`comments-list-${postId}`);
+    commentsList.innerHTML = '';
+    
+    comments.forEach(comment => {
+        addCommentToDOM(postId, comment);
+    });
+}
+
+function updateCommentCount(postId, count) {
+    const btn = document.querySelector(`[onclick="toggleComments(${postId})"] .count`);
+    if (btn) {
+        btn.textContent = count;
+    }
+}
+
+// Video controls
+function toggleVideo(video) {
+    if (video.paused) {
+        // Pause all other videos
+        document.querySelectorAll('video').forEach(v => {
+            if (v !== video) v.pause();
+        });
+        video.play();
+    } else {
+        video.pause();
+    }
+}
+
+// Auto-play videos when they come into view
+function setupAutoPlay() {
+    const videos = document.querySelectorAll('.post-media.video');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const video = entry.target;
+            if (entry.isIntersecting) {
+                // Pause all other videos
+                document.querySelectorAll('video').forEach(v => {
+                    if (v !== video) v.pause();
+                });
+                video.play();
+            } else {
+                video.pause();
+            }
+        });
+    }, {
+        threshold: 0.7 // Video needs to be 70% visible to start playing
+    });
+    
+    videos.forEach(video => observer.observe(video));
+}
+
+// Click handler for videos to open fullscreen in same page
+document.addEventListener('click', function(e) {
+    if (e.target.tagName === 'VIDEO' && e.target.classList.contains('post-media')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const postItem = e.target.closest('.post-item');
+        const postId = postItem.dataset.postId;
+        const videoSrc = e.target.src;
+        
+        // Tüm videoları duraklat
+        document.querySelectorAll('video').forEach(v => {
+            v.pause();
+        });
+        
+        // Video oynatıcıyı tam ekran modda aç
+        openFullscreenVideoPlayer(videoSrc, postId);
+    }
+});
+
+function openFullscreenVideo(src, postId) {
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+    
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+    
+    // Image göster, video gizle (normal fullscreen için)
+    video.style.display = 'none';
+    image.style.display = 'block';
+    image.src = src;
+    modal.style.display = 'flex';
+    
+    if (postId) {
+        updateFullscreenActions(postId);
+        setupMediaNavigation(postId);
+    }
+}
+
+function openFullscreenVideoPlayer(src, postId) {
+    // Nells container'ı gizle
+    document.querySelector('.nells-container').style.display = 'none';
+    
+    // Video player container'ı oluştur ve göster
+    showVideoPlayerOverlay(src, postId);
+}
+
+// Follow functionality
+function followUser(username) {
+    fetch('/follow_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            loadFollowStatuses();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    });
+}
+
+function loadFollowStatuses() {
+    fetch('/get_friendship_data')
+        .then(response => response.json())
+        .then(data => {
+            document.querySelectorAll('[id^="follow-btn-"]').forEach(btn => {
+                const username = btn.id.replace('follow-btn-', '');
+                
+                if (data.friends && data.friends.includes(username)) {
+                    btn.textContent = 'Arkadaş';
+                    btn.className = 'follow-btn active';
+                }
+            });
+        })
+        .catch(error => console.log('Follow status error:', error));
+}
+
+// Utility functions
+function deletePost(postId) {
+    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
+        fetch('/delete_post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Gönderi silindi');
+                location.reload();
+            } else {
+                alert('❌ ' + data.error);
+            }
+        });
+    }
+}
+
+function sharePost(postId) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderi',
+            text: 'Bu gönderiyi kontrol et!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Bağlantı kopyalandı!');
+    }
+}
+
+function openFullscreen(src, postId) {
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+    
+    if (!postId) {
+        // Get post ID from image element
+        const imgElement = document.querySelector(`img[src="${src}"]`);
+        if (imgElement) {
+            const postItem = imgElement.closest('.post-item');
+            postId = postItem ? postItem.dataset.postId : null;
+        }
+    }
+    
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+    
+    image.src = src;
+    image.style.display = 'block';
+    video.style.display = 'none';
+    modal.style.display = 'flex';
+    
+    if (postId) {
+        updateFullscreenActions(postId);
+        setupMediaNavigation(postId);
+    }
+}
+
+function closeFullscreen() {
+    const modal = document.getElementById('fullscreen-modal');
+    const video = document.getElementById('fullscreen-video');
+    
+    modal.style.display = 'none';
+    video.pause();
+    video.src = '';
+    currentFullscreenPostId = null;
+    mediaElements = [];
+    
+    // Sayfa videoları otomatik oynatmaya devam etsin
+    setupAutoPlay();
+}
+
+function showVideoPlayerOverlay(src, postId) {
+    // Video player overlay'i oluştur
+    let videoPlayerOverlay = document.getElementById('video-player-overlay');
+    
+    if (!videoPlayerOverlay) {
+        videoPlayerOverlay = document.createElement('div');
+        videoPlayerOverlay.id = 'video-player-overlay';
+        videoPlayerOverlay.className = 'video-player-overlay';
+        document.body.appendChild(videoPlayerOverlay);
+    }
+    
+    videoPlayerOverlay.innerHTML = `
+        <div class="video-player-content">
+            <video id="overlay-video" class="overlay-video" autoplay loop>
+                <source src="${src}" type="video/mp4">
+            </video>
+            <button class="close-video-player" onclick="closeVideoPlayer()">✕</button>
+            
+            <!-- Progress Bar -->
+            <div class="video-progress-container">
+                <div class="video-progress-bar" id="progress-bar"></div>
+            </div>
+            
+            <!-- Transparent Action Buttons - Right Side -->
+            <div class="overlay-actions">
+                <button class="overlay-action-btn like-btn-overlay" onclick="toggleLike(currentFullscreenPostId)">
+                    <span class="icon">🤍</span>
+                    <span class="count">0</span>
+                </button>
+                <button class="overlay-action-btn comment-btn-overlay" onclick="toggleComments(currentFullscreenPostId)">
+                    <span class="icon">💬</span>
+                    <span class="count">0</span>
+                </button>
+                <button class="overlay-action-btn share-btn-overlay" onclick="sharePost(currentFullscreenPostId)">
+                    <span class="icon">📤</span>
+                </button>
+            </div>
+            
+            <div class="video-navigation">
+                <button class="nav-btn prev-btn" onclick="navigateOverlayVideo(-1)">⬆️</button>
+                <button class="nav-btn next-btn" onclick="navigateOverlayVideo(1)">⬇️</button>
+            </div>
+        </div>
+    `;
+    
+    videoPlayerOverlay.style.display = 'flex';
+    
+    // Video navigation için mevcut index'i bul
+    fetch('/get_all_videos')
+        .then(response => response.json())
+        .then(data => {
+            allVideos = data.videos;
+            const currentVideoSrc = src;
+            currentVideoIndex = allVideos.findIndex(v => 
+                currentVideoSrc.includes(v.path) || v.path.includes(currentVideoSrc.split('/').pop())
+            );
+            if (currentVideoIndex === -1) currentVideoIndex = 0;
+        })
+        .catch(error => {
+            console.error('Video listesi alınamadı:', error);
+        });
+    
+    currentFullscreenPostId = postId ? parseInt(postId) : null;
+    
+    // Video progress bar için event listener'lar ekle
+    const overlayVideo = document.getElementById('overlay-video');
+    const progressBar = document.getElementById('progress-bar');
+    
+    overlayVideo.addEventListener('timeupdate', function() {
+        if (overlayVideo.duration) {
+            const progress = (overlayVideo.currentTime / overlayVideo.duration) * 100;
+            progressBar.style.width = progress + '%';
+        }
+    });
+    
+    // Progress bar'a tıklayarak video pozisyonunu değiştirme
+    document.querySelector('.video-progress-container').addEventListener('click', function(e) {
+        const rect = this.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        overlayVideo.currentTime = pos * overlayVideo.duration;
+    });
+    
+    // Action butonlarını güncelle
+    updateOverlayActions(postId);
+}
+
+function closeVideoPlayer() {
+    const videoPlayerOverlay = document.getElementById('video-player-overlay');
+    const overlayVideo = document.getElementById('overlay-video');
+    
+    if (videoPlayerOverlay) {
+        videoPlayerOverlay.style.display = 'none';
+        if (overlayVideo) {
+            overlayVideo.pause();
+        }
+    }
+    
+    // Nells container'ı tekrar göster
+    document.querySelector('.nells-container').style.display = 'block';
+    
+    // Sayfa videoları otomatik oynatmaya devam etsin
+    setupAutoPlay();
+}
+
+function updateOverlayActions(postId) {
+    if (!postId) return;
+    
+    // Like butonunu güncelle
+    const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    const overlayLikeBtn = document.querySelector('.like-btn-overlay');
+    
+    if (originalLikeBtn && overlayLikeBtn) {
+        overlayLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
+        overlayLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
+        overlayLikeBtn.classList.toggle('liked', originalLikeBtn.classList.contains('liked'));
+    }
+    
+    // Comment butonunu güncelle
+    const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
+    const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+    
+    if (originalCommentBtn && overlayCommentBtn) {
+        overlayCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
+    }
+}
+
+function navigateOverlayVideo(direction) {
+    if (allVideos.length <= 1) return;
+    
+    currentVideoIndex += direction;
+    
+    if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
+    if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
+    
+    const nextVideoData = allVideos[currentVideoIndex];
+    const overlayVideo = document.getElementById('overlay-video');
+    
+    if (overlayVideo && nextVideoData) {
+        // Video'yu değiştir
+        overlayVideo.pause();
+        overlayVideo.src = '/' + nextVideoData.path;
+        overlayVideo.play().catch(e => console.log('Video play error:', e));
+        
+        // Post bilgilerini güncelle
+        currentFullscreenPostId = nextVideoData.post_id;
+        updateOverlayActions(nextVideoData.post_id);
+    }
+}
+
+function updateFullscreenActions(postId) {
+    // Update like button
+    const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    const fsLikeBtn = document.querySelector('.like-btn-fs');
+    
+    if (originalLikeBtn && fsLikeBtn) {
+        fsLikeBtn.dataset.postId = postId;
+        fsLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
+        fsLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
+        fsLikeBtn.className = originalLikeBtn.className.replace('tiktok-btn', 'fullscreen-action-btn') + '-fs';
+    }
+    
+    // Update comment count
+    const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
+    const fsCommentBtn = document.querySelector('.comment-btn-fs');
+    
+    if (originalCommentBtn && fsCommentBtn) {
+        fsCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
+    }
+}
+
+function setupMediaNavigation(postId) {
+    const postItem = document.querySelector(`[data-post-id="${postId}"]`);
+    mediaElements = Array.from(postItem.querySelectorAll('.post-media'));
+    
+    const modal = document.getElementById('fullscreen-modal');
+    const prevArrow = modal.querySelector('.prev-arrow');
+    const nextArrow = modal.querySelector('.next-arrow');
+    
+    if (mediaElements.length > 1) {
+        prevArrow.style.display = 'block';
+        nextArrow.style.display = 'block';
+        
+        // Find current media index
+        const currentSrc = document.getElementById('fullscreen-image').src || document.getElementById('fullscreen-video').src;
+        currentMediaIndex = mediaElements.findIndex(el => el.src === currentSrc);
+    } else {
+        prevArrow.style.display = 'none';
+        nextArrow.style.display = 'none';
+    }
+}
+
+function setupVideoNavigation(postId) {
+    // Video listesini fetch et ve currentVideoIndex'i ayarla
+    fetch('/get_all_videos')
+        .then(response => response.json())
+        .then(data => {
+            allVideos = data.videos;
+            const currentVideoSrc = document.getElementById('fullscreen-video').src;
+            currentVideoIndex = allVideos.findIndex(v => 
+                currentVideoSrc.includes(v.path) || v.path.includes(currentVideoSrc.split('/').pop())
+            );
+            if (currentVideoIndex === -1) currentVideoIndex = 0;
+        })
+        .catch(error => {
+            console.error('Video listesi alınamadı:', error);
+        });
+}
+
+function navigateMedia(direction) {
+    if (mediaElements.length <= 1) return;
+    
+    currentMediaIndex += direction;
+    
+    if (currentMediaIndex < 0) currentMediaIndex = mediaElements.length - 1;
+    if (currentMediaIndex >= mediaElements.length) currentMediaIndex = 0;
+    
+    const nextMedia = mediaElements[currentMediaIndex];
+    const modal = document.getElementById('fullscreen-modal');
+    const image = document.getElementById('fullscreen-image');
+    const video = document.getElementById('fullscreen-video');
+    
+    if (nextMedia.tagName === 'VIDEO') {
+        image.style.display = 'none';
+        video.style.display = 'block';
+        video.src = nextMedia.src;
+    } else {
+        video.style.display = 'none';
+        image.style.display = 'block';
+        image.src = nextMedia.src;
+    }
+}
+
+// Initialize all videos for navigation
+function initializeVideoNavigation() {
+    allVideos = Array.from(document.querySelectorAll('.post-media.video'));
+}
+
+// Navigate between videos in fullscreen
+function navigateToVideo(direction) {
+    if (allVideos.length <= 1) return;
+    
+    currentVideoIndex += direction;
+    
+    if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
+    if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
+    
+    const nextVideoData = allVideos[currentVideoIndex];
+    const video = document.getElementById('fullscreen-video');
+    
+    // Video'yu değiştir
+    video.pause();
+    video.src = '/' + nextVideoData.path;
+    video.play().catch(e => console.log('Video play error:', e));
+    
+    // Post bilgilerini güncelle
+    currentFullscreenPostId = nextVideoData.post_id;
+    updateFullscreenActions(nextVideoData.post_id);
+}
+
+document.getElementById('fullscreen-modal').addEventListener('touchstart', function(e) {
+    const modalTouchStartY = e.touches[0].clientY;
+    const modalTouchStartX = e.touches[0].clientX;
+    const modalSwipeStartTime = Date.now();
+    
+    // Store in modal data attributes
+    e.currentTarget.dataset.touchStartY = modalTouchStartY;
+    e.currentTarget.dataset.touchStartX = modalTouchStartX;
+    e.currentTarget.dataset.swipeStartTime = modalSwipeStartTime;
+});
+
+document.getElementById('fullscreen-modal').addEventListener('touchmove', function(e) {
+    const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
+    const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
+    
+    if (!modalTouchStartY || !modalTouchStartX) return;
+    
+    const modalTouchCurrentY = e.touches[0].clientY;
+    const modalDiffY = modalTouchStartY - modalTouchCurrentY;
+    
+    // If swiping down, add visual feedback
+    if (modalDiffY < 0 && Math.abs(modalDiffY) > 50) {
+        const modal = document.getElementById('fullscreen-modal');
+        const opacity = Math.max(0.3, 1 - (Math.abs(modalDiffY) / 300));
+        modal.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+    }
+});
+
+document.getElementById('fullscreen-modal').addEventListener('touchend', function(e) {
+    const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
+    const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
+    const modalSwipeStartTime = parseFloat(e.currentTarget.dataset.swipeStartTime);
+    
+    if (!modalTouchStartY || !modalTouchStartX) return;
+    
+    const modalTouchEndY = e.changedTouches[0].clientY;
+    const modalTouchEndX = e.changedTouches[0].clientX;
+    const modalSwipeTime = Date.now() - modalSwipeStartTime;
+    
+    const modalDiffY = modalTouchStartY - modalTouchEndY;
+    const modalDiffX = modalTouchStartX - modalTouchEndX;
+    const modalSwipeDistance = Math.sqrt(modalDiffY * modalDiffY + modalDiffX * modalDiffX);
+    const modalSwipeSpeed = modalSwipeDistance / modalSwipeTime;
+    
+    // Reset background
+    const modal = document.getElementById('fullscreen-modal');
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+    
+    // Swipe down to close (like TikTok)
+    if (modalDiffY < -80 || (modalDiffY < -30 && modalSwipeSpeed > 0.5)) {
+        closeFullscreen();
+    }
+    // Swipe up/down for video navigation (like TikTok)
+    else if (Math.abs(modalDiffY) > Math.abs(modalDiffX) && Math.abs(modalDiffY) > 50) {
+        if (modalDiffY > 0) {
+            navigateToVideo(-1); // Swipe up = previous video
+        } else {
+            navigateToVideo(1); // Swipe down = next video
+        }
+    }
+    // Swipe left/right for media navigation within same post
+    else if (Math.abs(modalDiffX) > Math.abs(modalDiffY) && Math.abs(modalDiffX) > 50) {
+        if (modalDiffX > 0) {
+            navigateMedia(1); // Swipe left = next
+        } else {
+            navigateMedia(-1); // Swipe right = previous
+        }
+    }
+    
+    // Clear stored values
+    e.currentTarget.dataset.touchStartY = '';
+    e.currentTarget.dataset.touchStartX = '';
+    e.currentTarget.dataset.swipeStartTime = '';
+});
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Search functionality
+document.getElementById('search-btn').addEventListener('click', function() {
+    const query = document.getElementById('search-input').value.trim();
+    if (query) {
+        // Implement search logic here
+        console.log('Searching for:', query);
+    }
+});
+
+// Auto refresh every 60 seconds
+setInterval(() => {
+    loadAllPostData();
+}, 60000);
+</script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow-x: hidden;
+}
+
+.nells-container {
+    max-width: 500px;
+    margin: 0 auto;
+    background: #000;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Header */
+.nells-header {
+    position: sticky;
+    top: 0;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(20px);
+    z-index: 100;
+    padding: 15px 20px;
+    border-bottom: 1px solid #333;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nells-header h2 {
+    font-size: 24px;
+    font-weight: 800;
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.search-container {
+    display: flex;
+    gap: 8px;
+}
+
+#search-input {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 8px 15px;
+    color: #fff;
+    font-size: 14px;
+    width: 150px;
+}
+
+#search-btn {
+    background: #333;
+    border: none;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    color: #fff;
+}
+
+.create-post-fab {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 20px;
+    z-index: 101;
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+    transition: all 0.3s ease;
+}
+
+.create-post-fab:hover {
+    transform: scale(1.1);
+}
+
+/* Posts Feed */
+.posts-feed {
+    padding-bottom: 100px;
+}
+
+.post-item {
+    background: #111;
+    border-bottom: 1px solid #222;
+    padding: 20px;
+    padding-right: 80px; /* Space for action buttons */
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.post-item:hover {
+    background: #151515;
+}
+
+/* Post Header */
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.user-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #333;
+}
+
+.avatar-placeholder {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.user-info .username {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.post-time {
+    color: #888;
+    font-size: 12px;
+    display: block;
+    margin-top: 2px;
+}
+
+.post-menu {
+    display: flex;
+    gap: 8px;
+}
+
+.menu-btn {
+    background: #222;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.menu-btn.delete {
+    background: #ff4757;
+}
+
+.follow-btn {
+    background: #667eea;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.follow-btn.active {
+    background: #27ae60;
+}
+
+/* Post Content */
+.post-content {
+    margin-bottom: 15px;
+}
+
+.content-text {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #fff;
+}
+
+/* Media */
+.media-wrapper {
+    margin-bottom: 15px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.video-wrapper {
+    position: relative;
+    background: #000;
+}
+
+.post-media {
+    width: 100%;
+    border-radius: 12px;
+}
+
+.post-media.video {
+    height: 400px;
+    object-fit: cover;
+    transition: all 0.3s ease;
+}
+
+.post-media.video:hover {
+    transform: scale(1.02);
+}
+
+.post-media.image {
+    max-height: 500px;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.video-wrapper:hover .video-overlay {
+    opacity: 1;
+}
+
+.play-btn {
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.image-grid {
+    display: grid;
+    gap: 2px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.image-grid.multi-image {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* TikTok Style Action Buttons - Right Side */
+.post-item {
+    background: #111;
+    border-bottom: 1px solid #222;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tiktok-actions {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 10;
+}
+
+.tiktok-btn {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.tiktok-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.tiktok-btn .icon {
+    font-size: 20px;
+    display: block;
+}
+
+.tiktok-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tiktok-btn.liked {
+    background: rgba(255, 71, 87, 0.2);
+}
+
+.tiktok-btn.liked .icon {
+    color: #ff4757;
+    animation: heartBeat 0.6s ease;
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.3); }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.follower-info {
+    color: #888;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #222;
+}
+
+/* Comments */
+.comments-section {
+    background: #0a0a0a;
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 15px;
+    max-height: 500px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+.comment-item {
+    background: #111;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.comment-user {
+    font-weight: 600;
+    color: #4ecdc4;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.comment-text {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.comment-time {
+    color: #666;
+    font-size: 11px;
+}
+
+.comment-input-wrapper {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #222;
+}
+
+.comment-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 10px 15px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.send-comment-btn {
+    background: #4ecdc4;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* Scroll Controls */
+.scroll-controls {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 100;
+}
+
+.scroll-btn {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.scroll-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Fullscreen Modal */
+.fullscreen-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.fullscreen-modal::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    z-index: 10002;
+}
+
+.fullscreen-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-image, .fullscreen-video {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 8px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    z-index: 10001;
+}
+
+.nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #fff;
+    font-size: 30px;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    z-index: 10001;
+    display: none;
+}
+
+.prev-arrow {
+    left: 20px;
+}
+
+.next-arrow {
+    right: 20px;
+}
+
+.fullscreen-actions {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 10001;
+}
+
+.fullscreen-action-btn {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.fullscreen-action-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.fullscreen-action-btn .icon {
+    font-size: 20px;
+}
+
+.fullscreen-action-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Video Navigation Controls */
+.fullscreen-video-nav {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10001;
+}
+
+.video-nav-btn {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.video-nav-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+    transform: scale(1.1);
+}
+
+.video-nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* Empty State */
+.empty-feed {
+    text-align: center;
+    padding: 80px 20px;
+    color: #888;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-feed h3 {
+    color: #fff;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.cta-btn {
+    display: inline-block;
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+}
+
+.cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(255, 107, 107, 0.3);
+}
+
+/* Video Player Overlay */
+.video-player-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 20000;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-player-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.close-video-player {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    z-index: 20001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Progress Bar */
+.video-progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    z-index: 20001;
+}
+
+.video-progress-bar {
+    height: 100%;
+    background: #ff0000;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+/* Overlay Action Buttons - Right Side */
+.overlay-actions {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 20001;
+}
+
+.overlay-action-btn {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 55px;
+    height: 55px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    transition: all 0.3s ease;
+    gap: 2px;
+}
+
+.overlay-action-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    transform: scale(1.1);
+}
+
+.overlay-action-btn .icon {
+    font-size: 22px;
+    display: block;
+}
+
+.overlay-action-btn .count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.overlay-action-btn.liked {
+    background: rgba(255, 71, 87, 0.3);
+}
+
+.overlay-action-btn.liked .icon {
+    color: #ff4757;
+    animation: heartBeat 0.6s ease;
+}
+
+.video-navigation {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 20001;
+}
+
+.nav-btn {
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .nells-container {
+        max-width: 100%;
+    }
+    
+    .post-item {
+        padding: 15px;
+        padding-right: 70px; /* Adjust for smaller screens */
+    }
+    
+    .tiktok-actions {
+        right: 10px;
+        gap: 12px;
+    }
+    
+    .tiktok-btn {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .tiktok-btn .icon {
+        font-size: 18px;
+    }
+    
+    .search-container input {
+        width: 120px;
+    }
+    
+    .close-video-player {
+        top: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .video-navigation {
+        bottom: 20px;
+        right: 20px;
+        gap: 12px;
+    }
+    
+    .nav-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+}
+</style>
+{% endblock %}

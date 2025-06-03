@@ -331,6 +331,51 @@
 <body>
     
 
+    <!-- Header Menu -->
+    <div class="header">
+        <div class="mobile-header">
+            <div class="header-content">
+                <nav class="mobile-nav">
+                    {% if session.username %}
+                        <a href="{{ url_for('dashboard') }}" class="nav-btn {% if request.endpoint == 'dashboard' %}active{% endif %}">🏠</a>
+                        <a href="{{ url_for('nells') }}" class="nav-btn {% if request.endpoint == 'nells' %}active{% endif %}">🔥</a>
+                        <a href="{{ url_for('chat') }}" class="nav-btn {% if request.endpoint == 'chat' %}active{% endif %}">💬</a>
+                        <a href="{{ url_for('all_users') }}" class="nav-btn {% if request.endpoint == 'all_users' %}active{% endif %}">👥</a>
+                        
+                        <!-- Notifications -->
+                        <button id="notifications-btn" class="nav-btn notification-btn">
+                            🔔
+                            <span id="notification-count" class="notification-badge"></span>
+                        </button>
+                        
+                        <!-- Profile -->
+                        <a href="{{ url_for('profile', username=session.username) }}" class="nav-btn profile-btn">
+                            <img id="header-profile-photo" class="profile-img" style="display: none;">
+                            <div id="header-profile-placeholder" class="profile-placeholder">{{ session.username[0].upper() }}</div>
+                        </a>
+                        
+                        <button onclick="confirmLogout()" class="nav-btn logout">🚪</button>
+                    {% else %}
+                        <a href="{{ url_for('index') }}" class="nav-btn login">🔓</a>
+                        <a href="{{ url_for('register') }}" class="nav-btn login">📝</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Dropdown -->
+    {% if session.username %}
+    <div id="notifications-dropdown" class="notifications-dropdown">
+        <div class="notification-header">
+            <h4>Bildirimler</h4>
+        </div>
+        <div class="notification-list" id="notification-list">
+            <div class="empty-notifications">Henüz bildirim yok</div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="container">
 
         {% with messages = get_flashed_messages() %}

@@ -580,7 +580,7 @@ function showVideoPlayerOverlay(src, postId) {
             <video id="overlay-video" class="overlay-video" autoplay loop>
                 <source src="${src}" type="video/mp4">
             </video>
-            <button class="close-video-player" onclick="closeVideoPlayer()">✕</button>
+            <button class="close-video-player" onclick="goToHome()">🏠</button>
             
             <!-- Progress Bar -->
             <div class="video-progress-container">
@@ -589,15 +589,15 @@ function showVideoPlayerOverlay(src, postId) {
             
             <!-- Transparent Action Buttons - Right Side -->
             <div class="overlay-actions">
-                <button class="overlay-action-btn like-btn-overlay" onclick="toggleLike(currentFullscreenPostId)">
+                <button class="overlay-action-btn like-btn-overlay" onclick="toggleLikeOverlay()">
                     <span class="icon">🤍</span>
                     <span class="count">0</span>
                 </button>
-                <button class="overlay-action-btn comment-btn-overlay" onclick="toggleComments(currentFullscreenPostId)">
+                <button class="overlay-action-btn comment-btn-overlay" onclick="toggleCommentsOverlay()">
                     <span class="icon">💬</span>
                     <span class="count">0</span>
                 </button>
-                <button class="overlay-action-btn share-btn-overlay" onclick="sharePost(currentFullscreenPostId)">
+                <button class="overlay-action-btn share-btn-overlay" onclick="sharePostOverlay()">
                     <span class="icon">📤</span>
                 </button>
             </div>
@@ -605,6 +605,25 @@ function showVideoPlayerOverlay(src, postId) {
             <div class="video-navigation">
                 <button class="nav-btn prev-btn" onclick="navigateOverlayVideo(-1)">⬆️</button>
                 <button class="nav-btn next-btn" onclick="navigateOverlayVideo(1)">⬇️</button>
+            </div>
+            
+            <!-- Comments Section for Overlay -->
+            <div class="overlay-comments-section" id="overlay-comments" style="display: none;">
+                <div class="overlay-comments-content">
+                    <div class="overlay-comments-header">
+                        <h3>Yorumlar</h3>
+                        <button onclick="closeOverlayComments()" class="close-overlay-comments-btn">✕</button>
+                    </div>
+                    <div class="overlay-comments-list" id="overlay-comments-list">
+                        <!-- Comments will be loaded here -->
+                    </div>
+                    ${!isGuest ? `
+                    <div class="overlay-comment-input-wrapper">
+                        <input type="text" placeholder="Yorum ekle..." class="overlay-comment-input" id="overlay-comment-input" onkeypress="handleOverlayCommentKeyPress(event)">
+                        <button onclick="addOverlayComment()" class="send-overlay-comment-btn">📤</button>
+                    </div>
+                    ` : ''}
+                </div>
             </div>
         </div>
     `;
@@ -671,23 +690,192 @@ function closeVideoPlayer() {
 function updateOverlayActions(postId) {
     if (!postId) return;
     
-    // Like butonunu güncelle
-    const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
-    const overlayLikeBtn = document.querySelector('.like-btn-overlay');
-    
-    if (originalLikeBtn && overlayLikeBtn) {
-        overlayLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
-        overlayLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
-        overlayLikeBtn.classList.toggle('liked', originalLikeBtn.classList.contains('liked'));
+    // Post verisini yükle
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                const overlayLikeBtn = document.querySelector('.like-btn-overlay');
+                const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+                
+                if (overlayLikeBtn) {
+                    const isLiked = data.likes.includes(currentUser);
+                    overlayLikeBtn.querySelector('.icon').textContent = isLiked ? '❤️' : '🤍';
+                    overlayLikeBtn.querySelector('.count').textContent = data.like_count;
+                    overlayLikeBtn.classList.toggle('liked', isLiked);
+                }
+                
+                if (overlayCommentBtn) {
+                    overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
+                }
+            }
+        })
+        .catch(error => console.log('Error loading overlay data:', error));
+}
+
+function toggleLikeOverlay() {
+    if (isGuest) {
+        alert('Beğenmek için giriş yapmanız gerekiyor!');
+        return;
     }
     
-    // Comment butonunu güncelle
-    const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
-    const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+    if (!currentFullscreenPostId) return;
     
-    if (originalCommentBtn && overlayCommentBtn) {
-        overlayCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: currentFullscreenPostId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update overlay button
+            const overlayBtn = document.querySelector('.like-btn-overlay');
+            const icon = overlayBtn.querySelector('.icon');
+            const count = overlayBtn.querySelector('.count');
+            
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            overlayBtn.classList.toggle('liked', data.liked);
+            
+            // Update original button in background
+            const originalBtn = document.querySelector(`[data-post-id="${currentFullscreenPostId}"].like-btn`);
+            if (originalBtn) {
+                originalBtn.querySelector('.icon').textContent = data.liked ? '❤️' : '🤍';
+                originalBtn.querySelector('.count').textContent = data.like_count;
+                originalBtn.classList.toggle('liked', data.liked);
+            }
+            
+            // Add animation
+            overlayBtn.style.transform = 'scale(1.2)';
+            setTimeout(() => overlayBtn.style.transform = 'scale(1)', 200);
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Like error:', error));
+}
+
+function toggleCommentsOverlay() {
+    if (!currentFullscreenPostId) return;
+    
+    const commentsSection = document.getElementById('overlay-comments');
+    const isVisible = commentsSection.style.display !== 'none';
+    
+    if (isVisible) {
+        commentsSection.style.display = 'none';
+    } else {
+        loadOverlayComments(currentFullscreenPostId);
+        commentsSection.style.display = 'flex';
     }
+}
+
+function sharePostOverlay() {
+    if (!currentFullscreenPostId) return;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderi',
+            text: 'Bu gönderiyi kontrol et!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Bağlantı kopyalandı!');
+    }
+}
+
+function loadOverlayComments(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                const commentsList = document.getElementById('overlay-comments-list');
+                commentsList.innerHTML = '';
+                
+                data.comments.forEach(comment => {
+                    addOverlayCommentToDOM(comment);
+                });
+            }
+        })
+        .catch(error => console.log('Error loading overlay comments:', error));
+}
+
+function addOverlayComment() {
+    if (isGuest) {
+        alert('Yorum yapmak için giriş yapmanız gerekiyor!');
+        return;
+    }
+    
+    const input = document.getElementById('overlay-comment-input');
+    const comment = input.value.trim();
+    
+    if (!comment || !currentFullscreenPostId) return;
+    
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            post_id: currentFullscreenPostId, 
+            comment: comment 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            addOverlayCommentToDOM(data.comment);
+            
+            // Update comment count in overlay
+            const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
+            if (overlayCommentBtn) {
+                overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+            
+            // Update original comment count
+            const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${currentFullscreenPostId})"]`);
+            if (originalCommentBtn) {
+                originalCommentBtn.querySelector('.count').textContent = data.comment_count;
+            }
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => console.log('Comment error:', error));
+}
+
+function addOverlayCommentToDOM(comment) {
+    const commentsList = document.getElementById('overlay-comments-list');
+    const commentElement = document.createElement('div');
+    commentElement.className = 'overlay-comment-item';
+    commentElement.innerHTML = `
+        <div class="overlay-comment-user">@${comment.username}</div>
+        <div class="overlay-comment-text">${comment.comment}</div>
+        <div class="overlay-comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
+    `;
+    commentsList.appendChild(commentElement);
+    
+    // Animate new comment
+    commentElement.style.opacity = '0';
+    commentElement.style.transform = 'translateY(20px)';
+    setTimeout(() => {
+        commentElement.style.opacity = '1';
+        commentElement.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+function handleOverlayCommentKeyPress(event) {
+    if (event.key === 'Enter') {
+        addOverlayComment();
+    }
+}
+
+function closeOverlayComments() {
+    document.getElementById('overlay-comments').style.display = 'none';
+}
+
+function goToHome() {
+    window.location.href = '/nells';
 }
 
 function navigateOverlayVideo(direction) {
@@ -2008,6 +2196,135 @@ body {
     transform: scale(1.05);
 }
 
+/* Overlay Comments Section */
+.overlay-comments-section {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 400px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    z-index: 20002;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-comments-content {
+    background: #111;
+    border-radius: 16px;
+    width: 90%;
+    height: 80%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.overlay-comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.overlay-comments-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-overlay-comments-btn {
+    background: #333;
+    border: none;
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-comments-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background: #111;
+}
+
+.overlay-comment-item {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.overlay-comment-user {
+    font-weight: 600;
+    color: #4ecdc4;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.overlay-comment-text {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.overlay-comment-time {
+    color: #666;
+    font-size: 11px;
+}
+
+.overlay-comment-input-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 15px;
+    border-top: 1px solid #333;
+    background: #0a0a0a;
+}
+
+.overlay-comment-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.overlay-comment-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.send-overlay-comment-btn {
+    background: #4ecdc4;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.send-overlay-comment-btn:hover {
+    background: #45b7b8;
+    transform: scale(1.05);
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .nells-container {
@@ -2055,6 +2372,16 @@ body {
         width: 45px;
         height: 45px;
         font-size: 18px;
+    }
+    
+    .overlay-comments-section {
+        width: 100%;
+        left: 0;
+    }
+    
+    .overlay-comments-content {
+        width: 95%;
+        height: 85%;
     }
 }
 </style>

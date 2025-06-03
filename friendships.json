@@ -8,14 +8,21 @@
   },
   "Anılmaden": {
     "friends": [
-      "irem.cayr1"
+      "irem.cayr1",
+      "ayca.bül"
     ],
     "sent_requests": [],
-    "received_requests": []
+    "received_requests": [
+      "ayca.bül"
+    ]
   },
   "ayca.bül": {
-    "friends": [],
-    "sent_requests": [],
+    "friends": [
+      "Anılmaden"
+    ],
+    "sent_requests": [
+      "Anılmaden"
+    ],
     "received_requests": []
   }
 }

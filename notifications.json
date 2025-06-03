@@ -21,5 +21,14 @@
       "message": "irem.cayr1 gönderinizi beğendi",
       "timestamp": "2025-06-03T15:21:05.974532"
     }
+  ],
+  "irem.cayr1": [
+    {
+      "type": "like",
+      "from_user": "ayca.bül",
+      "post_id": 2,
+      "message": "ayca.bül gönderinizi beğendi",
+      "timestamp": "2025-06-03T15:39:01.302692"
+    }
   ]
 }

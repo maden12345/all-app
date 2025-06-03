@@ -34,6 +34,7 @@
             top: 0;
             z-index: 100;
             backdrop-filter: blur(20px);
+            width: 100%;
         }
 
         .mobile-header .header-content {
@@ -41,6 +42,8 @@
             justify-content: center;
             align-items: center;
             padding: 0 15px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .mobile-nav {
@@ -326,44 +329,45 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        {% if session.username or session.guest %}
-        <div class="header mobile-header">
-            <div class="header-content">
-                <div class="nav mobile-nav">
-                    {% if session.guest %}
-                        <div class="user-info mobile-user" style="color: #17a2b8;">👁️</div>
-                        <a href="{{ url_for('nells') }}" class="nav-btn active">📱</a>
-                        <a href="{{ url_for('logout') }}" class="nav-btn login">🔐</a>
-                    {% else %}
-                        <a href="{{ url_for('dashboard') }}" class="nav-btn">🏠</a>
-                        <a href="{{ url_for('nells') }}" class="nav-btn active">📱</a>
-                        <div style="position: relative;">
-                            <button id="notifications-btn" class="nav-btn notification-btn">
-                                🔔
-                                <span id="notification-count" class="notification-badge">0</span>
-                            </button>
-                            <div id="notifications-dropdown" class="notifications-dropdown">
-                                <div class="notification-header">
-                                    <h4>📬 Bildirimler</h4>
-                                </div>
-                                <div id="notification-list" class="notification-list">
-                                    <div class="empty-notifications">Henüz bildirim yok</div>
-                                </div>
+    {% if session.username or session.guest %}
+    <div class="header mobile-header">
+        <div class="header-content">
+            <div class="nav mobile-nav">
+                {% if session.guest %}
+                    <div class="user-info mobile-user" style="color: #17a2b8;">👁️</div>
+                    <a href="{{ url_for('nells') }}" class="nav-btn active">📱</a>
+                    <a href="{{ url_for('logout') }}" class="nav-btn login">🔐</a>
+                {% else %}
+                    <a href="{{ url_for('dashboard') }}" class="nav-btn">🏠</a>
+                    <a href="{{ url_for('nells') }}" class="nav-btn active">📱</a>
+                    <div style="position: relative;">
+                        <button id="notifications-btn" class="nav-btn notification-btn">
+                            🔔
+                            <span id="notification-count" class="notification-badge">0</span>
+                        </button>
+                        <div id="notifications-dropdown" class="notifications-dropdown">
+                            <div class="notification-header">
+                                <h4>📬 Bildirimler</h4>
+                            </div>
+                            <div id="notification-list" class="notification-list">
+                                <div class="empty-notifications">Henüz bildirim yok</div>
                             </div>
                         </div>
-                        <a href="{{ url_for('profile', username=session.username) }}" class="profile-btn">
-                            <img id="header-profile-photo" src="" alt="{{ session.username }}" class="profile-img">
-                            <div id="header-profile-placeholder" class="profile-placeholder">
-                                {{ session.username[0].upper() }}
-                            </div>
-                        </a>
-                        <button onclick="confirmLogout()" class="nav-btn logout">🚪</button>
-                    {% endif %}
-                </div>
+                    </div>
+                    <a href="{{ url_for('profile', username=session.username) }}" class="profile-btn">
+                        <img id="header-profile-photo" src="" alt="{{ session.username }}" class="profile-img">
+                        <div id="header-profile-placeholder" class="profile-placeholder">
+                            {{ session.username[0].upper() }}
+                        </div>
+                    </a>
+                    <button onclick="confirmLogout()" class="nav-btn logout">🚪</button>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="container">
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}

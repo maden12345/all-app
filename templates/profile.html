@@ -336,6 +336,42 @@ function loadUserPosts() {
 
 loadUserPosts();
 
+// Load post interaction data after posts are loaded
+function loadPostInteractionData() {
+    fetch(`/get_user_posts/${profileUser}`)
+        .then(response => response.json())
+        .then(posts => {
+            posts.forEach(post => {
+                // Load like and comment data for each post
+                fetch(`/get_post_data/${post.id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const likeBtn = document.querySelector(`[data-post-id="${post.id}"].profile-like-btn`);
+                        if (likeBtn) {
+                            const icon = likeBtn.querySelector('.like-icon');
+                            const count = likeBtn.querySelector('.like-count');
+
+                            const isLiked = data.likes && data.likes.includes('{{ session.username if session.username else "" }}');
+                            icon.textContent = isLiked ? '❤️' : '🤍';
+                            count.textContent = data.like_count;
+
+                            if (isLiked) {
+                                likeBtn.style.color = '#e74c3c';
+                            }
+                        }
+
+                        const commentBtn = document.querySelector(`[onclick="togglePostComments(${post.id})"] .comment-count`);
+                        if (commentBtn) {
+                            commentBtn.textContent = data.comment_count;
+                        }
+                    });
+            });
+        });
+}
+
+// Load interaction data after a short delay to ensure posts are rendered
+setTimeout(loadPostInteractionData, 500);
+
 function deleteUserPost(postId) {
     if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
         fetch('/delete_post', {

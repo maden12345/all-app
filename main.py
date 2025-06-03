@@ -149,18 +149,12 @@ def can_send_message(sender, recipient):
     users = load_users()
     recipient_data = users.get(recipient, {})
 
-    # Eğer alıcı herkesten mesaj almayı kapattıysa
-    if not recipient_data.get('allow_messages_from_all', True):
-        # Sadece arkadaşlardan veya takipçilerden mesaj alabilir
-        if are_friends(sender, recipient):
-            return True
+    # Eğer alıcı herkesten mesaj almayı açtıysa herkes gönderebilir
+    if recipient_data.get('allow_messages_from_all', True):
+        return True
 
-        # Takipçi kontrolü
-        followers = load_followers()
-        recipient_followers = followers.get(recipient, [])
-        return sender in recipient_followers
-
-    return True
+    # Kapalıysa sadece arkadaşlar gönderebilir
+    return are_friends(sender, recipient)
 
 
 
@@ -261,19 +255,28 @@ def nells():
 
     posts = load_posts()
     users = load_users()
-
-    # Sadece public postları göster
-    public_posts = [post for post in posts if post.get('is_public', True)]
+    current_user = session.get('username', '')
+    
+    # Gönderileri filtrele
+    filtered_posts = []
+    for post in posts:
+        # Eğer post public ise herkese göster
+        if post.get('is_public', True):
+            filtered_posts.append(post)
+        # Eğer post private ise sadece arkadaşlara göster
+        elif current_user and are_friends(current_user, post['username']):
+            filtered_posts.append(post)
+    
     # Tarihe göre ters sırala (en yeni üstte)
-    public_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    filtered_posts.sort(key=lambda x: x['created_at'], reverse=True)
 
     # Her post için takipçi sayısını ekle
-    for post in public_posts:
+    for post in filtered_posts:
         follower_count = get_follower_count(post['username'])
         post['followers_count'] = follower_count if follower_count is not None else 0
 
     is_guest = 'guest' in session
-    return render_template('nells.html', posts=public_posts, is_guest=is_guest, users_data=users)
+    return render_template('nells.html', posts=filtered_posts, is_guest=is_guest, users_data=users)
 
 @app.route('/chat/<recipient>')
 def chat(recipient):
@@ -714,14 +717,32 @@ def create_post():
 
 @app.route('/get_user_posts/<username>')
 def get_user_posts(username):
-    if 'username' not in session:
+    if 'username' not in session and 'guest' not in session:
         return jsonify([])
 
     posts = load_posts()
     user_posts = [post for post in posts if post['username'] == username]
-    user_posts.sort(key=lambda x: x['created_at'], reverse=True)
-
-    return jsonify(user_posts)
+    
+    # Eğer kendi profilini görüyorsa tüm gönderileri göster
+    if 'username' in session and username == session['username']:
+        user_posts.sort(key=lambda x: x['created_at'], reverse=True)
+        return jsonify(user_posts)
+    
+    # Başka birinin profilini görüyorsa
+    current_user = session.get('username', '')
+    
+    # Arkadaşlık durumunu kontrol et
+    is_friend = are_friends(current_user, username) if current_user else False
+    
+    # Gönderileri filtrele
+    filtered_posts = []
+    for post in user_posts:
+        # Eğer post public ise veya arkadaşsa göster
+        if post.get('is_public', True) or is_friend:
+            filtered_posts.append(post)
+    
+    filtered_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    return jsonify(filtered_posts)
 
 @app.route('/get_user_follower_count/<username>')
 def get_user_follower_count(username):

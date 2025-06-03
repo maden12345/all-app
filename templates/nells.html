@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Nells - ChatNell{% endblock %}
@@ -20,7 +19,7 @@
         </a>
         {% endif %}
     </div>
-    
+
     {% if posts %}
         <div class="posts-feed">
             {% for post in posts %}
@@ -57,7 +56,7 @@
                         <div class="media-wrapper">
                             {% set video_files = post.media_files|selectattr('type', 'equalto', 'video')|list %}
                             {% set image_files = post.media_files|rejectattr('type', 'equalto', 'video')|list %}
-                            
+
                             {% if video_files %}
                                 {% for file in video_files %}
                                     <div class="video-wrapper">
@@ -76,7 +75,7 @@
                                     </div>
                                 {% endfor %}
                             {% endif %}
-                            
+
                             {% if image_files %}
                                 <div class="image-grid {% if image_files|length > 1 %}multi-image{% endif %}">
                                     {% for file in image_files %}
@@ -101,7 +100,7 @@
                             <span class="icon">📤</span>
                         </button>
                     </div>
-                    
+
                     <!-- Follower info moved to bottom -->
                     <div class="follower-info">
                         <span class="follower-count">{{ post.followers_count }} takipçi</span>
@@ -147,11 +146,11 @@
         <img id="fullscreen-image" class="fullscreen-image">
         <video id="fullscreen-video" class="fullscreen-video" controls style="display: none;"></video>
         <button class="close-btn" onclick="closeFullscreen()">✕</button>
-        
+
         <!-- Navigation arrows for mobile swipe -->
         <button class="nav-arrow prev-arrow" onclick="navigateMedia(-1)">‹</button>
         <button class="nav-arrow next-arrow" onclick="navigateMedia(1)">›</button>
-        
+
         <!-- Transparent action buttons in fullscreen -->
         <div class="fullscreen-actions">
             <button class="fullscreen-action-btn like-btn-fs" onclick="toggleLikeFullscreen()" data-post-id="">
@@ -184,7 +183,7 @@
         </div>
         {% endif %}
     </div>
-        
+
         <!-- Video Navigation Controls - Bottom Right -->
         <div class="fullscreen-video-nav">
             <button class="video-nav-btn" onclick="navigateToVideo(-1)">⬆️</button>
@@ -240,7 +239,7 @@ function toggleLike(postId) {
         alert('Beğenmek için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     fetch('/like_post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -252,11 +251,11 @@ function toggleLike(postId) {
             const btn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
             const icon = btn.querySelector('.icon');
             const count = btn.querySelector('.count');
-            
+
             icon.textContent = data.liked ? '❤️' : '🤍';
             count.textContent = data.like_count;
             btn.classList.toggle('liked', data.liked);
-            
+
             // Add animation
             btn.style.transform = 'scale(1.2)';
             setTimeout(() => btn.style.transform = 'scale(1)', 200);
@@ -273,7 +272,7 @@ function updateLikeButton(postId, likes, likeCount) {
         const icon = btn.querySelector('.icon');
         const count = btn.querySelector('.count');
         const isLiked = likes.includes(currentUser);
-        
+
         icon.textContent = isLiked ? '❤️' : '🤍';
         count.textContent = likeCount;
         btn.classList.toggle('liked', isLiked);
@@ -284,9 +283,9 @@ function updateLikeButton(postId, likes, likeCount) {
 function toggleComments(postId) {
     const commentsSection = document.getElementById(`comments-${postId}`);
     const isVisible = commentsSection.style.display !== 'none';
-    
+
     commentsSection.style.display = isVisible ? 'none' : 'block';
-    
+
     // Animate
     if (!isVisible) {
         commentsSection.style.maxHeight = '0';
@@ -303,12 +302,12 @@ function addComment(postId) {
         alert('Yorum yapmak için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     const input = document.getElementById(`comment-input-${postId}`);
     const comment = input.value.trim();
-    
+
     if (!comment) return;
-    
+
     fetch('/add_comment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -346,7 +345,7 @@ function addCommentToDOM(postId, comment) {
         <div class="comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
     `;
     commentsList.appendChild(commentElement);
-    
+
     // Animate new comment
     commentElement.style.opacity = '0';
     commentElement.style.transform = 'translateY(20px)';
@@ -359,7 +358,7 @@ function addCommentToDOM(postId, comment) {
 function loadComments(postId, comments) {
     const commentsList = document.getElementById(`comments-list-${postId}`);
     commentsList.innerHTML = '';
-    
+
     comments.forEach(comment => {
         addCommentToDOM(postId, comment);
     });
@@ -388,7 +387,7 @@ function toggleVideo(video) {
 // Auto-play videos when they come into view
 function setupAutoPlay() {
     const videos = document.querySelectorAll('.post-media.video');
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             const video = entry.target;
@@ -405,7 +404,7 @@ function setupAutoPlay() {
     }, {
         threshold: 0.7 // Video needs to be 70% visible to start playing
     });
-    
+
     videos.forEach(video => observer.observe(video));
 }
 
@@ -414,16 +413,16 @@ document.addEventListener('click', function(e) {
     if (e.target.tagName === 'VIDEO' && e.target.classList.contains('post-media')) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         const postItem = e.target.closest('.post-item');
         const postId = postItem.dataset.postId;
         const videoSrc = e.target.src;
-        
+
         // Tüm videoları duraklat
         document.querySelectorAll('video').forEach(v => {
             v.pause();
         });
-        
+
         // Video oynatıcıyı tam ekran modda aç
         openFullscreenVideoPlayer(videoSrc, postId);
     }
@@ -433,15 +432,15 @@ function openFullscreenVideo(src, postId) {
     const modal = document.getElementById('fullscreen-modal');
     const image = document.getElementById('fullscreen-image');
     const video = document.getElementById('fullscreen-video');
-    
+
     currentFullscreenPostId = postId ? parseInt(postId) : null;
-    
+
     // Image göster, video gizle (normal fullscreen için)
     video.style.display = 'none';
     image.style.display = 'block';
     image.src = src;
     modal.style.display = 'flex';
-    
+
     if (postId) {
         updateFullscreenActions(postId);
         setupMediaNavigation(postId);
@@ -451,7 +450,7 @@ function openFullscreenVideo(src, postId) {
 function openFullscreenVideoPlayer(src, postId) {
     // Nells container'ı gizle
     document.querySelector('.nells-container').style.display = 'none';
-    
+
     // Video player container'ı oluştur ve göster
     showVideoPlayerOverlay(src, postId);
 }
@@ -480,7 +479,7 @@ function loadFollowStatuses() {
         .then(data => {
             document.querySelectorAll('[id^="follow-btn-"]').forEach(btn => {
                 const username = btn.id.replace('follow-btn-', '');
-                
+
                 if (data.friends && data.friends.includes(username)) {
                     btn.textContent = 'Arkadaş';
                     btn.className = 'follow-btn active';
@@ -527,7 +526,7 @@ function openFullscreen(src, postId) {
     const modal = document.getElementById('fullscreen-modal');
     const image = document.getElementById('fullscreen-image');
     const video = document.getElementById('fullscreen-video');
-    
+
     if (!postId) {
         // Get post ID from image element
         const imgElement = document.querySelector(`img[src="${src}"]`);
@@ -536,14 +535,14 @@ function openFullscreen(src, postId) {
             postId = postItem ? postItem.dataset.postId : null;
         }
     }
-    
+
     currentFullscreenPostId = postId ? parseInt(postId) : null;
-    
+
     image.src = src;
     image.style.display = 'block';
     video.style.display = 'none';
     modal.style.display = 'flex';
-    
+
     if (postId) {
         updateFullscreenActions(postId);
         setupMediaNavigation(postId);
@@ -553,13 +552,13 @@ function openFullscreen(src, postId) {
 function closeFullscreen() {
     const modal = document.getElementById('fullscreen-modal');
     const video = document.getElementById('fullscreen-video');
-    
+
     modal.style.display = 'none';
     video.pause();
     video.src = '';
     currentFullscreenPostId = null;
     mediaElements = [];
-    
+
     // Sayfa videoları otomatik oynatmaya devam etsin
     setupAutoPlay();
 }
@@ -567,26 +566,26 @@ function closeFullscreen() {
 function showVideoPlayerOverlay(src, postId) {
     // Video player overlay'i oluştur
     let videoPlayerOverlay = document.getElementById('video-player-overlay');
-    
+
     if (!videoPlayerOverlay) {
         videoPlayerOverlay = document.createElement('div');
         videoPlayerOverlay.id = 'video-player-overlay';
         videoPlayerOverlay.className = 'video-player-overlay';
         document.body.appendChild(videoPlayerOverlay);
     }
-    
+
     videoPlayerOverlay.innerHTML = `
         <div class="video-player-content">
             <video id="overlay-video" class="overlay-video" autoplay loop>
                 <source src="${src}" type="video/mp4">
             </video>
             <button class="close-video-player" onclick="goToHome()">N</button>
-            
+
             <!-- Progress Bar -->
             <div class="video-progress-container">
                 <div class="video-progress-bar" id="progress-bar"></div>
             </div>
-            
+
             <!-- Transparent Action Buttons - Right Side -->
             <div class="overlay-actions">
                 <button class="overlay-action-btn like-btn-overlay" onclick="toggleLikeOverlay()">
@@ -601,12 +600,12 @@ function showVideoPlayerOverlay(src, postId) {
                     <span class="icon">📤</span>
                 </button>
             </div>
-            
+
             <div class="video-navigation">
                 <button class="nav-btn prev-btn" onclick="navigateOverlayVideo(-1)">⬆️</button>
                 <button class="nav-btn next-btn" onclick="navigateOverlayVideo(1)">⬇️</button>
             </div>
-            
+
             <!-- Comments Section for Overlay -->
             <div class="overlay-comments-section" id="overlay-comments" style="display: none;">
                 <div class="overlay-comments-content">
@@ -627,9 +626,9 @@ function showVideoPlayerOverlay(src, postId) {
             </div>
         </div>
     `;
-    
+
     videoPlayerOverlay.style.display = 'flex';
-    
+
     // Video navigation için mevcut index'i bul
     fetch('/get_all_videos')
         .then(response => response.json())
@@ -644,27 +643,27 @@ function showVideoPlayerOverlay(src, postId) {
         .catch(error => {
             console.error('Video listesi alınamadı:', error);
         });
-    
+
     currentFullscreenPostId = postId ? parseInt(postId) : null;
-    
+
     // Video progress bar için event listener'lar ekle
     const overlayVideo = document.getElementById('overlay-video');
     const progressBar = document.getElementById('progress-bar');
-    
+
     overlayVideo.addEventListener('timeupdate', function() {
         if (overlayVideo.duration) {
             const progress = (overlayVideo.currentTime / overlayVideo.duration) * 100;
             progressBar.style.width = progress + '%';
         }
     });
-    
+
     // Progress bar'a tıklayarak video pozisyonunu değiştirme
     document.querySelector('.video-progress-container').addEventListener('click', function(e) {
         const rect = this.getBoundingClientRect();
         const pos = (e.clientX - rect.left) / rect.width;
         overlayVideo.currentTime = pos * overlayVideo.duration;
     });
-    
+
     // Action butonlarını güncelle
     updateOverlayActions(postId);
 }
@@ -672,24 +671,24 @@ function showVideoPlayerOverlay(src, postId) {
 function closeVideoPlayer() {
     const videoPlayerOverlay = document.getElementById('video-player-overlay');
     const overlayVideo = document.getElementById('overlay-video');
-    
+
     if (videoPlayerOverlay) {
         videoPlayerOverlay.style.display = 'none';
         if (overlayVideo) {
             overlayVideo.pause();
         }
     }
-    
+
     // Nells container'ı tekrar göster
     document.querySelector('.nells-container').style.display = 'block';
-    
+
     // Sayfa videoları otomatik oynatmaya devam etsin
     setupAutoPlay();
 }
 
 function updateOverlayActions(postId) {
     if (!postId) return;
-    
+
     // Post verisini yükle
     fetch(`/get_post_data/${postId}`)
         .then(response => response.json())
@@ -697,14 +696,14 @@ function updateOverlayActions(postId) {
             if (!data.error) {
                 const overlayLikeBtn = document.querySelector('.like-btn-overlay');
                 const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
-                
+
                 if (overlayLikeBtn) {
                     const isLiked = data.likes.includes(currentUser);
                     overlayLikeBtn.querySelector('.icon').textContent = isLiked ? '❤️' : '🤍';
                     overlayLikeBtn.querySelector('.count').textContent = data.like_count;
                     overlayLikeBtn.classList.toggle('liked', isLiked);
                 }
-                
+
                 if (overlayCommentBtn) {
                     overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
                 }
@@ -718,9 +717,9 @@ function toggleLikeOverlay() {
         alert('Beğenmek için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     if (!currentFullscreenPostId) return;
-    
+
     fetch('/like_post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -733,11 +732,11 @@ function toggleLikeOverlay() {
             const overlayBtn = document.querySelector('.like-btn-overlay');
             const icon = overlayBtn.querySelector('.icon');
             const count = overlayBtn.querySelector('.count');
-            
+
             icon.textContent = data.liked ? '❤️' : '🤍';
             count.textContent = data.like_count;
             overlayBtn.classList.toggle('liked', data.liked);
-            
+
             // Update original button in background
             const originalBtn = document.querySelector(`[data-post-id="${currentFullscreenPostId}"].like-btn`);
             if (originalBtn) {
@@ -745,7 +744,7 @@ function toggleLikeOverlay() {
                 originalBtn.querySelector('.count').textContent = data.like_count;
                 originalBtn.classList.toggle('liked', data.liked);
             }
-            
+
             // Add animation
             overlayBtn.style.transform = 'scale(1.2)';
             setTimeout(() => overlayBtn.style.transform = 'scale(1)', 200);
@@ -758,10 +757,10 @@ function toggleLikeOverlay() {
 
 function toggleCommentsOverlay() {
     if (!currentFullscreenPostId) return;
-    
+
     const commentsSection = document.getElementById('overlay-comments');
     const isVisible = commentsSection.style.display !== 'none';
-    
+
     if (isVisible) {
         commentsSection.style.display = 'none';
     } else {
@@ -772,7 +771,7 @@ function toggleCommentsOverlay() {
 
 function sharePostOverlay() {
     if (!currentFullscreenPostId) return;
-    
+
     if (navigator.share) {
         navigator.share({
             title: 'ChatNell Gönderi',
@@ -792,7 +791,7 @@ function loadOverlayComments(postId) {
             if (!data.error) {
                 const commentsList = document.getElementById('overlay-comments-list');
                 commentsList.innerHTML = '';
-                
+
                 data.comments.forEach(comment => {
                     addOverlayCommentToDOM(comment);
                 });
@@ -806,12 +805,12 @@ function addOverlayComment() {
         alert('Yorum yapmak için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     const input = document.getElementById('overlay-comment-input');
     const comment = input.value.trim();
-    
+
     if (!comment || !currentFullscreenPostId) return;
-    
+
     fetch('/add_comment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -825,13 +824,13 @@ function addOverlayComment() {
         if (data.success) {
             input.value = '';
             addOverlayCommentToDOM(data.comment);
-            
+
             // Update comment count in overlay
             const overlayCommentBtn = document.querySelector('.comment-btn-overlay');
             if (overlayCommentBtn) {
                 overlayCommentBtn.querySelector('.count').textContent = data.comment_count;
             }
-            
+
             // Update original comment count
             const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${currentFullscreenPostId})"]`);
             if (originalCommentBtn) {
@@ -854,7 +853,7 @@ function addOverlayCommentToDOM(comment) {
         <div class="overlay-comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
     `;
     commentsList.appendChild(commentElement);
-    
+
     // Animate new comment
     commentElement.style.opacity = '0';
     commentElement.style.transform = 'translateY(20px)';
@@ -880,21 +879,21 @@ function goToHome() {
 
 function navigateOverlayVideo(direction) {
     if (allVideos.length <= 1) return;
-    
+
     currentVideoIndex += direction;
-    
+
     if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
     if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
-    
+
     const nextVideoData = allVideos[currentVideoIndex];
     const overlayVideo = document.getElementById('overlay-video');
-    
+
     if (overlayVideo && nextVideoData) {
         // Video'yu değiştir
         overlayVideo.pause();
         overlayVideo.src = '/' + nextVideoData.path;
         overlayVideo.play().catch(e => console.log('Video play error:', e));
-        
+
         // Post bilgilerini güncelle
         currentFullscreenPostId = nextVideoData.post_id;
         updateOverlayActions(nextVideoData.post_id);
@@ -905,12 +904,12 @@ function updateFullscreenActions(postId) {
     // Update like button
     const originalLikeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
     const fsLikeBtn = document.querySelector('.like-btn-fs');
-    
+
     if (originalLikeBtn && fsLikeBtn) {
         fsLikeBtn.dataset.postId = postId;
         fsLikeBtn.querySelector('.icon').textContent = originalLikeBtn.querySelector('.icon').textContent;
         fsLikeBtn.querySelector('.count').textContent = originalLikeBtn.querySelector('.count').textContent;
-        
+
         // Copy liked class if exists
         if (originalLikeBtn.classList.contains('liked')) {
             fsLikeBtn.classList.add('liked');
@@ -918,11 +917,11 @@ function updateFullscreenActions(postId) {
             fsLikeBtn.classList.remove('liked');
         }
     }
-    
+
     // Update comment count
     const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${postId})"]`);
     const fsCommentBtn = document.querySelector('.comment-btn-fs');
-    
+
     if (originalCommentBtn && fsCommentBtn) {
         fsCommentBtn.querySelector('.count').textContent = originalCommentBtn.querySelector('.count').textContent;
     }
@@ -934,7 +933,7 @@ function toggleLikeFullscreen() {
         alert('Beğenmek için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     if (currentFullscreenPostId) {
         fetch('/like_post', {
             method: 'POST',
@@ -948,11 +947,11 @@ function toggleLikeFullscreen() {
                 const fsBtn = document.querySelector('.like-btn-fs');
                 const icon = fsBtn.querySelector('.icon');
                 const count = fsBtn.querySelector('.count');
-                
+
                 icon.textContent = data.liked ? '❤️' : '🤍';
                 count.textContent = data.like_count;
                 fsBtn.classList.toggle('liked', data.liked);
-                
+
                 // Update original button
                 const originalBtn = document.querySelector(`[data-post-id="${currentFullscreenPostId}"].like-btn`);
                 if (originalBtn) {
@@ -960,7 +959,7 @@ function toggleLikeFullscreen() {
                     originalBtn.querySelector('.count').textContent = data.like_count;
                     originalBtn.classList.toggle('liked', data.liked);
                 }
-                
+
                 // Add animation
                 fsBtn.style.transform = 'scale(1.2)';
                 setTimeout(() => fsBtn.style.transform = 'scale(1)', 200);
@@ -976,7 +975,7 @@ function toggleCommentsFullscreen() {
     if (currentFullscreenPostId) {
         const commentsModal = document.getElementById('fullscreen-comments');
         const isVisible = commentsModal.style.display !== 'none';
-        
+
         if (isVisible) {
             commentsModal.style.display = 'none';
         } else {
@@ -1008,7 +1007,7 @@ function loadFullscreenComments(postId) {
             if (!data.error) {
                 const commentsList = document.getElementById('fullscreen-comments-list');
                 commentsList.innerHTML = '';
-                
+
                 data.comments.forEach(comment => {
                     addFullscreenCommentToDOM(comment);
                 });
@@ -1022,12 +1021,12 @@ function addFullscreenComment() {
         alert('Yorum yapmak için giriş yapmanız gerekiyor!');
         return;
     }
-    
+
     const input = document.getElementById('fullscreen-comment-input');
     const comment = input.value.trim();
-    
+
     if (!comment || !currentFullscreenPostId) return;
-    
+
     fetch('/add_comment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1041,13 +1040,13 @@ function addFullscreenComment() {
         if (data.success) {
             input.value = '';
             addFullscreenCommentToDOM(data.comment);
-            
+
             // Update comment count in fullscreen
             const fsCommentBtn = document.querySelector('.comment-btn-fs');
             if (fsCommentBtn) {
                 fsCommentBtn.querySelector('.count').textContent = data.comment_count;
             }
-            
+
             // Update original comment count
             const originalCommentBtn = document.querySelector(`[onclick="toggleComments(${currentFullscreenPostId})"]`);
             if (originalCommentBtn) {
@@ -1070,7 +1069,7 @@ function addFullscreenCommentToDOM(comment) {
         <div class="fullscreen-comment-time">${new Date(comment.timestamp).toLocaleString('tr-TR')}</div>
     `;
     commentsList.appendChild(commentElement);
-    
+
     // Animate new comment
     commentElement.style.opacity = '0';
     commentElement.style.transform = 'translateY(20px)';
@@ -1093,15 +1092,15 @@ function closeFullscreenComments() {
 function setupMediaNavigation(postId) {
     const postItem = document.querySelector(`[data-post-id="${postId}"]`);
     mediaElements = Array.from(postItem.querySelectorAll('.post-media'));
-    
+
     const modal = document.getElementById('fullscreen-modal');
     const prevArrow = modal.querySelector('.prev-arrow');
     const nextArrow = modal.querySelector('.next-arrow');
-    
+
     if (mediaElements.length > 1) {
         prevArrow.style.display = 'block';
         nextArrow.style.display = 'block';
-        
+
         // Find current media index
         const currentSrc = document.getElementById('fullscreen-image').src || document.getElementById('fullscreen-video').src;
         currentMediaIndex = mediaElements.findIndex(el => el.src === currentSrc);
@@ -1130,17 +1129,17 @@ function setupVideoNavigation(postId) {
 
 function navigateMedia(direction) {
     if (mediaElements.length <= 1) return;
-    
+
     currentMediaIndex += direction;
-    
+
     if (currentMediaIndex < 0) currentMediaIndex = mediaElements.length - 1;
     if (currentMediaIndex >= mediaElements.length) currentMediaIndex = 0;
-    
+
     const nextMedia = mediaElements[currentMediaIndex];
     const modal = document.getElementById('fullscreen-modal');
     const image = document.getElementById('fullscreen-image');
     const video = document.getElementById('fullscreen-video');
-    
+
     if (nextMedia.tagName === 'VIDEO') {
         image.style.display = 'none';
         video.style.display = 'block';
@@ -1160,20 +1159,20 @@ function initializeVideoNavigation() {
 // Navigate between videos in fullscreen
 function navigateToVideo(direction) {
     if (allVideos.length <= 1) return;
-    
+
     currentVideoIndex += direction;
-    
+
     if (currentVideoIndex < 0) currentVideoIndex = allVideos.length - 1;
     if (currentVideoIndex >= allVideos.length) currentVideoIndex = 0;
-    
+
     const nextVideoData = allVideos[currentVideoIndex];
     const video = document.getElementById('fullscreen-video');
-    
+
     // Video'yu değiştir
     video.pause();
     video.src = '/' + nextVideoData.path;
     video.play().catch(e => console.log('Video play error:', e));
-    
+
     // Post bilgilerini güncelle
     currentFullscreenPostId = nextVideoData.post_id;
     updateFullscreenActions(nextVideoData.post_id);
@@ -1183,7 +1182,7 @@ document.getElementById('fullscreen-modal').addEventListener('touchstart', funct
     const modalTouchStartY = e.touches[0].clientY;
     const modalTouchStartX = e.touches[0].clientX;
     const modalSwipeStartTime = Date.now();
-    
+
     // Store in modal data attributes
     e.currentTarget.dataset.touchStartY = modalTouchStartY;
     e.currentTarget.dataset.touchStartX = modalTouchStartX;
@@ -1193,12 +1192,12 @@ document.getElementById('fullscreen-modal').addEventListener('touchstart', funct
 document.getElementById('fullscreen-modal').addEventListener('touchmove', function(e) {
     const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
     const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
-    
+
     if (!modalTouchStartY || !modalTouchStartX) return;
-    
+
     const modalTouchCurrentY = e.touches[0].clientY;
     const modalDiffY = modalTouchStartY - modalTouchCurrentY;
-    
+
     // If swiping down, add visual feedback
     if (modalDiffY < 0 && Math.abs(modalDiffY) > 50) {
         const modal = document.getElementById('fullscreen-modal');
@@ -1211,22 +1210,22 @@ document.getElementById('fullscreen-modal').addEventListener('touchend', functio
     const modalTouchStartY = parseFloat(e.currentTarget.dataset.touchStartY);
     const modalTouchStartX = parseFloat(e.currentTarget.dataset.touchStartX);
     const modalSwipeStartTime = parseFloat(e.currentTarget.dataset.swipeStartTime);
-    
+
     if (!modalTouchStartY || !modalTouchStartX) return;
-    
+
     const modalTouchEndY = e.changedTouches[0].clientY;
     const modalTouchEndX = e.changedTouches[0].clientX;
     const modalSwipeTime = Date.now() - modalSwipeStartTime;
-    
+
     const modalDiffY = modalTouchStartY - modalTouchEndY;
     const modalDiffX = modalTouchStartX - modalTouchEndX;
     const modalSwipeDistance = Math.sqrt(modalDiffY * modalDiffY + modalDiffX * modalDiffX);
     const modalSwipeSpeed = modalSwipeDistance / modalSwipeTime;
-    
+
     // Reset background
     const modal = document.getElementById('fullscreen-modal');
     modal.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
-    
+
     // Swipe down to close (like TikTok)
     if (modalDiffY < -80 || (modalDiffY < -30 && modalSwipeSpeed > 0.5)) {
         closeFullscreen();
@@ -1247,7 +1246,7 @@ document.getElementById('fullscreen-modal').addEventListener('touchend', functio
             navigateMedia(-1); // Swipe right = previous
         }
     }
-    
+
     // Clear stored values
     e.currentTarget.dataset.touchStartY = '';
     e.currentTarget.dataset.touchStartX = '';
@@ -1288,11 +1287,12 @@ body {
 }
 
 .nells-container {
-    max-width: 500px;
+    max-width: 450px;
     margin: 0 auto;
     background: #000;
     min-height: 100vh;
-    position: relative;
+    overflow-x: hidden;
+    padding-top: 70px;
 }
 
 /* Header */
@@ -2330,30 +2330,30 @@ body {
     .nells-container {
         max-width: 100%;
     }
-    
+
     .post-item {
         padding: 15px;
         padding-right: 70px; /* Adjust for smaller screens */
     }
-    
+
     .tiktok-actions {
         right: 10px;
         gap: 12px;
     }
-    
+
     .tiktok-btn {
         width: 45px;
         height: 45px;
     }
-    
+
     .tiktok-btn .icon {
         font-size: 18px;
     }
-    
+
     .search-container input {
         width: 120px;
     }
-    
+
     .close-video-player {
         top: 15px;
         right: 15px;
@@ -2361,24 +2361,24 @@ body {
         height: 45px;
         font-size: 20px;
     }
-    
+
     .video-navigation {
         bottom: 20px;
         right: 20px;
         gap: 12px;
     }
-    
+
     .nav-btn {
         width: 45px;
         height: 45px;
         font-size: 18px;
     }
-    
+
     .overlay-comments-section {
         width: 100%;
         left: 0;
     }
-    
+
     .overlay-comments-content {
         width: 95%;
         height: 85%;

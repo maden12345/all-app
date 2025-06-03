@@ -309,7 +309,7 @@ function loadUserPosts() {
             }
 
             postsDiv.innerHTML = posts.map(post => `
-                <div style="border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 20px; background: white;">
+                <div style="border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 20px; background: white;" data-post-id="${post.id}">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <strong style="color: #2c3e50;">${post.username}</strong>
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -328,9 +328,42 @@ function loadUserPosts() {
                             `).join('')}
                         </div>
                     ` : ''}
-                    ${isOwnProfile ? `<button onclick="deleteUserPost(${post.id})" class="btn" style="background-color: #e74c3c; color: white;">Sil</button>` : ''}
+                    
+                    <!-- Interaction buttons -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        ${!{{ 'true' if is_guest else 'false' }} ? `
+                            <button onclick="toggleProfileLike(${post.id})" class="profile-like-btn" data-post-id="${post.id}" style="background: none; border: none; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #7f8c8d; transition: color 0.3s ease;">
+                                <span class="like-icon">🤍</span>
+                                <span class="like-count">0</span>
+                            </button>
+                            <button onclick="togglePostComments(${post.id})" style="background: none; border: none; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #7f8c8d;">
+                                💬 <span class="comment-count">0</span>
+                            </button>
+                            <button onclick="sharePost(${post.id})" style="background: none; border: none; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #7f8c8d;">
+                                📤 Paylaş
+                            </button>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Comments section -->
+                    <div id="comments-section-${post.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <div id="comments-list-${post.id}" style="margin-bottom: 15px;"></div>
+                        ${!{{ 'true' if is_guest else 'false' }} ? `
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="comment-input-${post.id}" placeholder="Yorum ekle..." style="flex: 1; padding: 8px 12px; border: 1px solid #e9ecef; border-radius: 20px; outline: none;" onkeypress="handleProfileCommentKeyPress(event, ${post.id})">
+                                <button onclick="addProfileComment(${post.id})" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer;">Gönder</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${isOwnProfile ? `<button onclick="deleteUserPost(${post.id})" class="btn" style="background-color: #e74c3c; color: white; margin-top: 10px;">Sil</button>` : ''}
                 </div>
             `).join('');
+            
+            // Load interaction data after posts are rendered
+            setTimeout(() => {
+                loadPostInteractionData();
+            }, 100);
         });
 }
 
@@ -387,6 +420,115 @@ function deleteUserPost(postId) {
             } else {
                 alert('❌ ' + data.error);
             }
+        });
+    }
+}
+
+function toggleProfileLike(postId) {
+    fetch('/like_post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const likeBtn = document.querySelector(`[data-post-id="${postId}"].profile-like-btn`);
+            const icon = likeBtn.querySelector('.like-icon');
+            const count = likeBtn.querySelector('.like-count');
+            
+            icon.textContent = data.liked ? '❤️' : '🤍';
+            count.textContent = data.like_count;
+            
+            if (data.liked) {
+                likeBtn.style.color = '#e74c3c';
+            } else {
+                likeBtn.style.color = '#7f8c8d';
+            }
+        } else {
+            alert('❌ ' + data.error);
+        }
+    });
+}
+
+function togglePostComments(postId) {
+    const commentsSection = document.getElementById(`comments-section-${postId}`);
+    if (commentsSection.style.display === 'none') {
+        commentsSection.style.display = 'block';
+        loadPostComments(postId);
+    } else {
+        commentsSection.style.display = 'none';
+    }
+}
+
+function loadPostComments(postId) {
+    fetch(`/get_post_data/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            const commentsList = document.getElementById(`comments-list-${postId}`);
+            if (data.comments && data.comments.length > 0) {
+                commentsList.innerHTML = data.comments.map(comment => `
+                    <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <strong style="color: #2c3e50;">${comment.username}</strong>
+                            <span style="font-size: 12px; color: #7f8c8d;">${new Date(comment.timestamp).toLocaleString('tr-TR')}</span>
+                        </div>
+                        <p style="color: #2c3e50; margin: 0;">${comment.comment}</p>
+                    </div>
+                `).join('');
+            } else {
+                commentsList.innerHTML = '<div style="text-align: center; color: #7f8c8d;">Henüz yorum yok</div>';
+            }
+        });
+}
+
+function addProfileComment(postId) {
+    const input = document.getElementById(`comment-input-${postId}`);
+    const comment = input.value.trim();
+    
+    if (!comment) return;
+    
+    fetch('/add_comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, comment: comment })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            input.value = '';
+            loadPostComments(postId);
+            // Update comment count
+            const commentBtn = document.querySelector(`[onclick="togglePostComments(${postId})"] .comment-count`);
+            if (commentBtn) {
+                commentBtn.textContent = data.comment_count;
+            }
+        } else {
+            alert('❌ ' + data.error);
+        }
+    });
+}
+
+function handleProfileCommentKeyPress(event, postId) {
+    if (event.key === 'Enter') {
+        addProfileComment(postId);
+    }
+}
+
+function sharePost(postId) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'ChatNell Gönderisi',
+            text: 'Bu gönderiyi beğendim!',
+            url: window.location.href
+        });
+    } else {
+        // Fallback for browsers that don't support Web Share API
+        const url = window.location.href + '#post-' + postId;
+        navigator.clipboard.writeText(url).then(() => {
+            alert('✅ Gönderi linki kopyalandı!');
+        }).catch(() => {
+            alert('📎 Link: ' + url);
         });
     }
 }

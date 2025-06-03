@@ -23,16 +23,18 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 70px 20px 0 20px;
         }
 
         .header {
             background: rgba(0, 0, 0, 0.95);
             border-bottom: 1px solid #333;
             padding: 8px 0;
-            position: sticky;
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1000;
             backdrop-filter: blur(20px);
             width: 100%;
         }
@@ -407,70 +409,81 @@
     });
 
     function loadNotifications() {
-        fetch('/get_friend_requests')
-            .then(response => response.json())
-            .then(data => {
-                const notificationList = document.getElementById('notification-list');
-                const notificationCount = document.getElementById('notification-count');
+        Promise.all([
+            fetch('/get_friend_requests'),
+            fetch('/get_notifications')
+        ])
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(([friendData, notifications]) => {
+            const notificationList = document.getElementById('notification-list');
+            const notificationCount = document.getElementById('notification-count');
+            
+            let allNotifications = [];
+            
+            // Add friend requests
+            if (friendData.received_requests && friendData.received_requests.length > 0) {
+                allNotifications = allNotifications.concat(friendData.received_requests.map(username => ({
+                    type: 'friend_request',
+                    username: username,
+                    message: `${username} arkadaşlık isteği gönderdi`,
+                    timestamp: new Date().toISOString()
+                })));
+            }
+            
+            // Add like/comment notifications
+            if (notifications && notifications.length > 0) {
+                allNotifications = allNotifications.concat(notifications);
+            }
+            
+            // Sort by timestamp (newest first)
+            allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (allNotifications.length > 0) {
+                notificationCount.textContent = allNotifications.length;
+                notificationCount.style.display = 'flex';
                 
-                let allNotifications = [];
-                
-                // Add friend requests
-                if (data.received_requests && data.received_requests.length > 0) {
-                    allNotifications = allNotifications.concat(data.received_requests.map(username => ({
-                        type: 'friend_request',
-                        username: username,
-                        message: `${username} arkadaşlık isteği gönderdi`,
-                        timestamp: new Date().toISOString()
-                    })));
-                }
-                
-                // Add like/comment notifications
-                if (data.notifications && data.notifications.length > 0) {
-                    allNotifications = allNotifications.concat(data.notifications);
-                }
-                
-                if (allNotifications.length > 0) {
-                    notificationCount.textContent = allNotifications.length;
-                    notificationCount.style.display = 'flex';
-                    
-                    notificationList.innerHTML = allNotifications.map(notification => {
-                        if (notification.type === 'friend_request') {
-                            return `
-                                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; color: #fff;">
-                                    <div>
-                                        <strong style="color: #4ecdc4;">${notification.username}</strong> arkadaşlık isteği gönderdi
-                                    </div>
-                                    <div style="display: flex; gap: 8px;">
-                                        <button onclick="acceptRequest('${notification.username}')" style="background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Kabul Et</button>
-                                        <button onclick="rejectRequest('${notification.username}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Reddet</button>
-                                    </div>
+                notificationList.innerHTML = allNotifications.map(notification => {
+                    if (notification.type === 'friend_request') {
+                        return `
+                            <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; color: #fff;">
+                                <div>
+                                    <strong style="color: #4ecdc4;">${notification.username}</strong> arkadaşlık isteği gönderdi
                                 </div>
-                            `;
-                        } else {
-                            const icon = notification.type === 'like' ? '❤️' : '💬';
-                            const timeAgo = getTimeAgo(notification.timestamp);
-                            return `
-                                <div style="padding: 12px; border-bottom: 1px solid #333; color: #fff;">
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                        <span style="font-size: 16px;">${icon}</span>
-                                        <strong style="color: #4ecdc4;">${notification.from_user}</strong>
-                                    </div>
-                                    <div style="font-size: 14px; color: #ccc; margin-bottom: 4px;">
-                                        ${notification.message}
-                                    </div>
-                                    <div style="font-size: 12px; color: #888;">
-                                        ${timeAgo}
-                                    </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="acceptRequest('${notification.username}')" style="background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Kabul Et</button>
+                                    <button onclick="rejectRequest('${notification.username}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Reddet</button>
                                 </div>
-                            `;
-                        }
-                    }).join('');
-                } else {
-                    notificationCount.style.display = 'none';
-                    notificationList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Henüz bildirim yok</div>';
-                }
-            });
+                            </div>
+                        `;
+                    } else {
+                        const icon = notification.type === 'like' ? '❤️' : '💬';
+                        const timeAgo = getTimeAgo(notification.timestamp);
+                        return `
+                            <div style="padding: 12px; border-bottom: 1px solid #333; color: #fff; cursor: pointer;" onclick="window.location.href='/profile/${notification.from_user}'">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-size: 16px;">${icon}</span>
+                                    <strong style="color: #4ecdc4;">${notification.from_user}</strong>
+                                </div>
+                                <div style="font-size: 14px; color: #ccc; margin-bottom: 4px;">
+                                    ${notification.message}
+                                </div>
+                                <div style="font-size: 12px; color: #888;">
+                                    ${timeAgo}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            } else {
+                notificationCount.style.display = 'none';
+                notificationList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Henüz bildirim yok</div>';
+            }
+        })
+        .catch(error => {
+            console.log('Error loading notifications:', error);
+            document.getElementById('notification-count').style.display = 'none';
+            document.getElementById('notification-list').innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Bildirimler yüklenirken hata oluştu</div>';
+        });
     }
     
     function getTimeAgo(timestamp) {
